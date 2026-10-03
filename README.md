@@ -2,7 +2,7 @@
 
 Guardian is an open-source, **enterprise-grade API gateway and network proxy** that detects and tokenizes Personally Identifiable Information (PII) before it leaves your secure infrastructure and reaches external LLM providers (like OpenAI, Claude, or Gemini).
 
-### 🚀 The Problem
+### The Problem
 
 Modern companies want to give employees access to generative AI to boost productivity. However, developers and business units frequently copy-paste proprietary code, API keys, client emails, and confidential metrics into cloud AI endpoints. Blanket-blocking AI ruins innovation, but unchecked usage risks catastrophic data compliance violations (GDPR, HIPAA, SOC2).
 
@@ -10,7 +10,7 @@ Modern companies want to give employees access to generative AI to boost product
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 Guardian is a central proxy that sits seamlessly between your internal developer network and the public AI APIs.
 
@@ -49,7 +49,7 @@ Guardian masks whatever the Presidio analyzer recognizes — out of the box `EMA
 
 ---
 
-## 🔐 Role-Based Masking
+## Role-Based Masking
 
 Not everything is masked for everyone. The gateway reads a signed **JWT** from the `Authorization: Bearer …` header and applies the matching policy:
 
@@ -69,7 +69,7 @@ A data-science analyst can send customer ZIP codes; a marketing intern sending t
 
 > For local testing only, set `ALLOW_ROLE_HEADER=true` to trust `X-Guardian-Role` / `X-Guardian-Team` headers instead of a JWT. Never enable it in production.
 
-## 📖 Custom Enterprise Dictionary + Live Reload
+## Custom Enterprise Dictionary and Live Reload
 
 `gateway/config/custom-rules.json` defines regex rules, the role policy, budgets and pricing. The gateway watches the file with **fsnotify** and reloads on save — no container restart:
 
@@ -84,14 +84,14 @@ A data-science analyst can send customer ZIP codes; a marketing intern sending t
 
 The compose stack bind-mounts `./gateway/config` into the container, so save the file on the host and the next request uses the new rules.
 
-## ⚡ Streaming & Failure Policy
+## Streaming and Failure Policy
 
 - **True streaming.** `text/event-stream` responses are rehydrated in flight. A token split across two chunks is buffered until it completes, so rehydration never corrupts the stream. Non-streaming bodies are buffered and rewritten.
 - **`FAILURE_POLICY`** decides what happens when Presidio is unreachable:
   - `BLOCK` (default, fail-closed) → `503` and an alert on the dashboard.
   - `PASS` (fail-open) → the request is forwarded using only the local custom rules, and an alert is raised.
 
-## 💸 Cost Tracking & Budget Caps
+## Cost Tracking and Budget Caps
 
 The gateway maps token usage to dollars using the `pricing` table in the config, records spend per team under `budget:<team>:<YYYY-MM>`, and returns `429` when a cap is hit:
 
@@ -102,7 +102,7 @@ The gateway maps token usage to dollars using the `pricing` table in the config,
 
 Usage comes from the upstream `usage` object when the provider returns one; otherwise it is estimated from the payload size.
 
-## 🔍 PII Leak Audit Log
+## PII Leak Audit Log
 
 Every request is appended to a capped Redis list and rendered at `/audit`:
 `Timestamp | User | IP | Team/Role | Service | Status | Entities masked | Preview`.
@@ -111,7 +111,7 @@ The table **only ever shows masked tokens**. An authorized officer enters the `A
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Gateway Core:** Go (Golang) — `net/http` multiplexer over a `net/http/httputil` reverse proxy with a custom streaming rehydrator.
 - **NLP Intelligence:** Microsoft Presidio Analyzer (`ghcr.io/data-privacy-stack/presidio-analyzer`).
@@ -121,7 +121,7 @@ The table **only ever shows masked tokens**. An authorized officer enters the `A
 
 ---
 
-## ⚡ Quick Start (1-Command Setup)
+## Quick Start
 
 ### Prerequisites
 
@@ -185,7 +185,18 @@ curl http://localhost:8080/v1/chat/completions \
 
 ---
 
-## 🔒 Production Considerations
+## Advanced Enterprise Capabilities
+
+Guardian goes beyond basic proxying to support heavy production compliance requirements:
+
+- **Sub-Millisecond SSE Streaming Rehydration** — the gateway dynamically intercepts, scans and reconstructs Server-Sent Events streaming data chunk-by-chunk. Tokens split across network packet boundaries are buffered until complete, so rehydration never corrupts the stream or introduces downstream rendering latency.
+- **Hot-Reloading Custom Dictionaries** — built with a debounced `fsnotify` directory watcher in Go. Security teams can inject custom regex rules or proprietary project codenames into `config/custom-rules.json` and watch the gateway atomically swap configuration live, without a container reboot.
+- **Role-Based Data Masking** — integrated with JWT verification. The gateway parses incoming corporate identities and checks their group privileges against a strict per-role entity allow-list: teams explicitly cleared for an entity type can pass it, while everything else is masked for everyone else.
+- **FinOps Budgets and Audits** — a built-in token-to-dollar pricing lookup table for modern OpenAI and Claude variants. Guardian automatically tracks team spend and returns an exact `429 Too Many Requests` when a budget cap is violated, alongside a secure audit dashboard at `/audit` where originals are only retrievable through an officer-key-restricted reveal endpoint.
+
+---
+
+## Production Considerations
 
 ### Serverless Infrastructure Optimization
 
@@ -216,7 +227,7 @@ REDIS_URL=rediss://default:<password>@<region>.upstash.io:6379
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the Project.
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
@@ -233,6 +244,6 @@ cd ../dashboard && npm install && npm run build
 
 ---
 
-## 📄 License
+## License
 
 MIT — see [LICENSE](LICENSE).

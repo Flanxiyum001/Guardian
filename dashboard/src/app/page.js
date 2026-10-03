@@ -47,7 +47,7 @@ export default async function Dashboard() {
         <header className="mb-10 flex flex-wrap items-end justify-between gap-4 border-b border-slate-800 pb-6">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-emerald-400">
-              🛡️ Guardian Enterprise Dashboard
+              Guardian Enterprise Dashboard
             </h1>
             <p className="mt-1 text-sm text-slate-400">
               Real-time local LLM privacy monitoring, token auditing and cost control

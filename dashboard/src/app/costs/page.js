@@ -38,7 +38,7 @@ export default async function CostsPage() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-10 border-b border-slate-800 pb-6">
           <h1 className="text-3xl font-extrabold tracking-tight text-emerald-400">
-            💸 Cost Tracking &amp; Budget Caps
+            Cost Tracking &amp; Budget Caps
           </h1>
           <p className="mt-1 text-sm text-slate-400">
             Monthly spend per team for {data.month}. The gateway returns
@@ -76,7 +76,7 @@ export default async function CostsPage() {
                   <Bar spent={row.spent} cap={row.cap} />
                   <span className="mt-2 block text-xs text-slate-500">
                     {over
-                      ? "🚫 Cap reached — further requests are blocked with 429."
+                      ? "Cap reached — further requests are blocked with 429."
                       : `${pct}% of the monthly budget used`}
                   </span>
                 </li>

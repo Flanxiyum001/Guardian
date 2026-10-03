@@ -23,7 +23,7 @@ export default function RefreshButton() {
         className="rounded-md border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white"
         aria-pressed={live}
       >
-        {live ? "● Live" : "○ Paused"}
+        {live ? "Live" : "Paused"}
       </button>
       <button
         type="button"
