@@ -19,6 +19,18 @@ services:
       # MOCK_UPSTREAM=true echoes the sanitized payload instead of forwarding it,
       # so the smoke test works without an API key. Set it to "false" to proxy for real.
       - MOCK_UPSTREAM=${MOCK_UPSTREAM:-true}
+      # BLOCK = fail closed if Presidio cannot be reached; PASS = fail open.
+      - FAILURE_POLICY=${FAILURE_POLICY:-BLOCK}
+      # HS256 secret used to verify caller JWTs (role/team claims drive masking rules).
+      - JWT_SECRET=${JWT_SECRET:-}
+      # Local testing only: trust X-Guardian-Role / X-Guardian-Team headers.
+      - ALLOW_ROLE_HEADER=${ALLOW_ROLE_HEADER:-false}
+      - TOKEN_TTL_HOURS=${TOKEN_TTL_HOURS:-24}
+      - AUDIT_LOG_SIZE=${AUDIT_LOG_SIZE:-500}
+      - CONFIG_PATH=/app/config/custom-rules.json
+    volumes:
+      # Edit rules/roles/budgets live; the gateway hot-reloads without a restart.
+      - ./gateway/config:/app/config
     depends_on:
       cache:
         condition: service_healthy
@@ -60,6 +72,8 @@ services:
       - "3000:3000"
     environment:
       - REDIS_URL=redis://cache:6379
+      # Officers enter this key in the Audit Log page to reveal original values.
+      - AUDIT_REVEAL_KEY=${AUDIT_REVEAL_KEY:-}
     depends_on:
       cache:
         condition: service_healthy
