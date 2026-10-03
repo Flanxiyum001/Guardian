@@ -1,4 +1,4 @@
-# AIGuard — one-command local stack: Go gateway + Presidio + Redis + Next.js dashboard.
+# Guardian — one-command local stack: Go gateway + Presidio + Redis + Next.js dashboard.
 #
 #   docker compose up --build
 #

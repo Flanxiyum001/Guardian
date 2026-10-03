@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "AIGuard Dashboard",
+  title: "Guardian Dashboard",
   description: "Real-time PII tokenization monitoring gateway",
 };
 
