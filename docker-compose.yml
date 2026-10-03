@@ -1,0 +1,66 @@
+# AIGuard — one-command local stack: Go gateway + Presidio + Redis + Next.js dashboard.
+#
+#   docker compose up --build
+#
+# The gateway listens on :8080, Presidio on :5000, Redis on :6379 and the
+# dashboard on :3000.
+
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://cache:6379
+      # Presidio's analyzer listens on port 3000 *inside* its container.
+      - PRESIDIO_URL=http://presidio:3000
+      - UPSTREAM_URL=${UPSTREAM_URL:-https://api.openai.com}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # MOCK_UPSTREAM=true echoes the sanitized payload instead of forwarding it,
+      # so the smoke test works without an API key. Set it to "false" to proxy for real.
+      - MOCK_UPSTREAM=${MOCK_UPSTREAM:-true}
+    depends_on:
+      cache:
+        condition: service_healthy
+      presidio:
+        condition: service_started
+    restart: unless-stopped
+
+  presidio:
+    # The project moved off MCR; new releases are published to GHCR.
+    # The analyzer's Flask app listens on port 3000 in the container.
+    image: ghcr.io/data-privacy-stack/presidio-analyzer:latest
+    ports:
+      - "5000:3000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/health')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # First boot downloads / loads the spaCy model, so allow a slow start.
+      start_period: 90s
+    restart: unless-stopped
+
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_URL=redis://cache:6379
+    depends_on:
+      cache:
+        condition: service_healthy
+    restart: unless-stopped
