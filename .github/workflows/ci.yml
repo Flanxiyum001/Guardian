@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/enterprise-security-suite"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Dashboard — Next.js 14 App Router
+  # ---------------------------------------------------------------------------
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Type-check and build
+        run: |
+          bun tsc -b --noEmit
+          bun run build
+
+      - name: Verify static routes are prerendered
+        run: |
+          ls .next/server/app/api/reveal/route.js
+          ls .next/server/app/audit/page.js
+          ls .next/server/app/costs/page.js
+          ls .next/server/app/page.js
+
+  # ---------------------------------------------------------------------------
+  # Gateway — Go 1.24
+  # ---------------------------------------------------------------------------
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: gofmt check
+        run: gofmt -l $(find . -name '*.go' -not -path './vendor/*')
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Tests
+        run: go test -count=1 -race ./...
