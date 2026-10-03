@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "project-codenames",
+      "entity_type": "PROJECT_CODENAME",
+      "description": "Internal project codenames public models won't recognize",
+      "score": 0.9,
+      "patterns": [
+        "Project\\s+[A-Z][A-Za-z0-9]+",
+        "Secret-V\\d+"
+      ]
+    },
+    {
+      "id": "zip-codes",
+      "entity_type": "ZIP_CODE",
+      "description": "US ZIP codes (data-science is allowed to send these)",
+      "score": 0.85,
+      "patterns": [
+        "\\b\\d{5}(?:-\\d{4})?\\b"
+      ]
+    },
+    {
+      "id": "internal-cost-tickets",
+      "entity_type": "INTERNAL_TICKET",
+      "description": "Example of an internal identifier format",
+      "score": 0.85,
+      "patterns": [
+        "FIN-[0-9]{6}"
+      ]
+    }
+  ],
+  "role_policy": {
+    "default": { "allow_entities": [] },
+    "roles": {
+      "data-science": { "allow_entities": ["ZIP_CODE"] },
+      "marketing": { "allow_entities": [] },
+      "intern": { "allow_entities": [] },
+      "contractors": { "allow_entities": [] }
+    }
+  },
+  "budgets": {
+    "default": 100,
+    "marketing": 500,
+    "data-science": 1000
+  },
+  "pricing": {
+    "gpt-4o": { "input_per_1k": 0.0025, "output_per_1k": 0.01 },
+    "gpt-4o-mini": { "input_per_1k": 0.00015, "output_per_1k": 0.0006 },
+    "claude-3-5-sonnet": { "input_per_1k": 0.003, "output_per_1k": 0.015 },
+    "claude-3-5-haiku": { "input_per_1k": 0.0008, "output_per_1k": 0.004 },
+    "claude-3-opus": { "input_per_1k": 0.015, "output_per_1k": 0.075 },
+    "default": { "input_per_1k": 0.0025, "output_per_1k": 0.01 }
+  }
+}
