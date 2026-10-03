@@ -1,5 +1,5 @@
-// AIGuard Gateway is a transparent, OpenAI-compatible reverse proxy that detects
-// and tokenizes PII with Microsoft Presidio before the request ever leaves your
+// Guardian is a transparent, OpenAI-compatible reverse proxy that detects and
+// tokenizes PII with Microsoft Presidio before the request ever leaves your
 // network. The real values are stored in Redis under opaque tokens; the upstream
 // provider only ever sees the tokens.
 package main
@@ -65,7 +65,7 @@ type presidioFinding struct {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
-	log.SetPrefix("[aiguard] ")
+	log.SetPrefix("[guardian] ")
 
 	redisURL := envOr("REDIS_URL", "redis://localhost:6379")
 	opt, err := redis.ParseURL(redisURL)
@@ -141,7 +141,7 @@ func sanitize(proxy *httputil.ReverseProxy) http.Handler {
 		if mockUpstream {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"aiguard":  "sanitized",
+				"guardian": "sanitized",
 				"upstream": "mock",
 				"messages": req.Messages,
 			})

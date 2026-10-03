@@ -1,4 +1,4 @@
-module aiguard/gateway
+module guardian/gateway
 
 go 1.24
 

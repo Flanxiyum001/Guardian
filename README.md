@@ -1,146 +1,162 @@
-# 🛡️ AIGuard
+# 🛡️ Guardian
 
-A privacy gateway for LLM traffic. A lightweight **Go API gateway** sits in front
-of any OpenAI-compatible endpoint, detects PII with **Microsoft Presidio**, swaps
-each finding for an opaque token, and keeps the real value in **Redis**. A
-**Next.js dashboard** shows the live counters.
+Guardian is an open-source, **enterprise-grade API gateway and network proxy** that detects and tokenizes Personally Identifiable Information (PII) before it leaves your secure infrastructure and reaches external LLM providers (like OpenAI, Claude, or Gemini).
 
-```
-            ┌─────────────┐   sanitized text   ┌────────────────────┐
- client ───▶│ Go gateway  │───────────────────▶│  Upstream LLM API  │
-            │   :8080     │                    └────────────────────┘
-            └──────┬──────┘
-              ┌────┴─────┐
-              ▼          ▼
-     ┌──────────────┐  ┌───────────────┐
-     │ Presidio     │  │ Redis         │  tokens + stats
-     │ analyzer     │  │ :6379         │
-     │ :5000        │  └───────┬───────┘
-     └──────────────┘          │
-                       ┌───────▼────────┐
-                       │ Next.js dash   │
-                       │ :3000          │
-                       └────────────────┘
-```
+### 🚀 The Problem
 
-## Layout
+Modern companies want to give employees access to generative AI to boost productivity. However, developers and business units frequently copy-paste proprietary code, API keys, client emails, and confidential metrics into cloud AI endpoints. Blanket-blocking AI ruins innovation, but unchecked usage risks catastrophic data compliance violations (GDPR, HIPAA, SOC2).
 
-```
-.
-├── docker-compose.yml       # Orchestrates the whole stack
-├── gateway/
-│   ├── Dockerfile
-│   ├── go.mod / go.sum
-│   ├── main.go              # Go proxy + Presidio tokenization core
-│   └── main_test.go
-└── dashboard/
-    ├── Dockerfile
-    ├── package.json
-    └── src/app/             # Next.js App Router UI
+**Guardian fixes this by acting as a low-latency, local sanitization barrier.**
+
+---
+
+## 🏗️ Architecture Overview
+
+Guardian is a central proxy that sits seamlessly between your internal developer network and the public AI APIs.
+
+```text
+              ┌──────────────────────────── Docker stack ────────────────────────────┐
+              │                                                                      │
+ [ Developer ]│   ┌──────────────┐   scan text   ┌────────────────┐                 │
+ :8080 ───────┼──►│  Go Gateway  │──────────────►│    Presidio    │                 │
+              │   │   (proxy)    │◄──────────────│   local NLP    │                 │
+              │   └──────┬───────┘   findings    └────────────────┘                 │
+              │          │ tokens                                                  │
+              │          ▼                                                         │
+              │   ┌──────────────┐                                               │
+              │   │ Redis cache  │◄──────────────┐                               │
+              │   │ (token vault)│               │ counters                      │
+              │   └──────────────┘               │                               │
+              │                                  │                               │
+ [ Security ] │   ┌──────────────┐               │                               │
+ :3000 ───────┼──►│  Next.js UI  │───────────────┘                               │
+              │   └──────────────┘                                               │
+              └──────────────────────────┬───────────────────────────────────────┘
+                                         │ sanitized payload (TLS)
+                                         ▼
+                              [ External AI provider ]
 ```
 
-## Prerequisites
+1. **Intercept** — the developer targets `http://localhost:8080/v1/chat/completions` instead of `api.openai.com`.
+2. **Evaluate** — the Go gateway extracts the payload text and checks it against the local **Microsoft Presidio NLP engine** container.
+3. **Tokenize** — if sensitive information is detected (e.g. an email address), the gateway stores the original string inside an in-memory **Redis cache** and generates a unique, non-colliding placeholder token (e.g. `[MASKED_EMAIL_ADDRESS_1759…]`).
+4. **Forward** — the sanitized text is routed safely to the upstream AI provider.
 
-- Docker with the Compose plugin (`docker compose version`).
-- Optional: an `OPENAI_API_KEY` if you want to proxy to a real upstream.
+> **Roadmap — rehydrate.** Mapping placeholder tokens back to the real strings in the upstream *response* is a planned milestone and is **not implemented yet**. Today the gateway sanitizes requests and passes responses through unchanged.
 
-## Quickstart
+### Detection scope
+
+Guardian masks whatever entity types the Presidio analyzer is configured to recognize — out of the box that is PII such as `EMAIL_ADDRESS`, `PHONE_NUMBER`, `PERSON`, `CREDIT_CARD`, `IBAN_CODE`, `IP_ADDRESS`, `US_SSN` and many more (see the [Presidio supported entities](https://microsoft.github.io/presidio/supported_entities/)).
+
+Secrets such as AWS access keys are **not** detected by Presidio's default recognizers. To cover your own secret formats, register a custom recognizer with Presidio; Guardian will mask whatever it returns.
+
+---
+
+## 🛠️ Tech Stack & Service Layout
+
+- **Gateway Core:** Go (Golang) — `net/http` multiplexer over a `net/http/httputil` reverse proxy, built for sub-millisecond in-process overhead.
+- **NLP Intelligence:** Microsoft Presidio Analyzer (`ghcr.io/data-privacy-stack/presidio-analyzer`) running on a dedicated micro-service port.
+- **Token Storage:** Redis 7 (Alpine) — for lightning-fast key-value mapping and data expirations.
+- **Metrics Visualization:** Next.js (TailwindCSS) — an administrative web UI tracking total request volume, blocked leaks, and block rate.
+
+---
+
+## ⚡ Quick Start (1-Command Setup)
+
+### Prerequisites
+
+Ensure you have [Docker](https://docker.com) and Docker Compose installed.
+
+### 1. Launch the Stack
+
+Clone the repository and spin up all 4 micro-services simultaneously:
 
 ```bash
+git clone https://github.com/Flanxiyum001/Guardian.git
+cd Guardian
 docker compose up --build
 ```
 
-Then open:
+### 2. Access the Admin Dashboard
 
-- Dashboard — <http://localhost:3000>
-- Gateway health — <http://localhost:8080/healthz>
-- Presidio (direct) — <http://localhost:5000/health>
+Open your browser and navigate to **`http://localhost:3000`** to view real-time data metrics and leaks caught.
 
-The gateway exposing `:8080` is the endpoint you point your LLM client at.
+### 3. Run the Local Test
 
-## Verify it works
-
-Send a payload containing a phone number and an email:
+By default, the gateway runs with `MOCK_UPSTREAM=true` so you can smoke-test it completely free without needing a paid OpenAI API key. Fire a terminal request containing a leaked email and phone number directly into the proxy:
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "Hello, my phone number is 555-0199 and my email is test@company.com"}]}'
+  -d '{
+    "messages": [
+      {
+        "role": "user",
+        "content": "Deploy for client jane.doe@acme.com or call 415-555-0132"
+      }
+    ]
+  }'
 ```
 
-By default the stack runs with `MOCK_UPSTREAM=true`, so the gateway **echoes the
-sanitized payload** instead of forwarding it — no API key required:
+**The intercepted proxy output:**
 
 ```json
 {
-  "aiguard": "sanitized",
+  "guardian": "sanitized",
   "upstream": "mock",
   "messages": [
-    { "role": "user", "content": "Hello, my phone number is [MASKED_PHONE_NUMBER_…] and my email is [MASKED_EMAIL_ADDRESS_…]" }
+    {
+      "role": "user",
+      "content": "Deploy for client [MASKED_EMAIL_ADDRESS_1759…] or call [MASKED_PHONE_NUMBER_1759…]"
+    }
   ]
 }
 ```
 
-Refresh <http://localhost:3000> and both counters (**Total Evaluated Traffic** and
-**PII Leaks Blocked**) increase. The dashboard auto-refreshes every 5 seconds.
+*Check your browser at `http://localhost:3000` — the statistics cards will have instantly updated!*
 
-### Proxying for real
+With `MOCK_UPSTREAM=false` and `OPENAI_API_KEY` set, the same request is sanitized and forwarded to `https://api.openai.com` instead of being echoed.
 
-```bash
-export OPENAI_API_KEY=sk-...
-export MOCK_UPSTREAM=false
-docker compose up --build
+---
+
+## 🔒 Production Considerations
+
+### Serverless Infrastructure Optimization
+
+For cloud-scale orchestration or production operations running outside of Docker Compose, managing an elastic, self-hosted Redis instance can be costly.
+
+This repository natively supports **Upstash Redis** — a serverless, zero-configuration key-value storage engine. The Go gateway (`go-redis`) and the dashboard (`node-redis`) both speak the standard Redis protocol, so point them at Upstash's **TLS endpoint**:
+
+1. Provision a free database cluster on [Upstash](https://upstash.com).
+2. Override your environment flags in your orchestration profile:
+
+```env
+REDIS_URL=rediss://default:<password>@<region>.upstash.io:6379
 ```
 
-Requests to `/v1/chat/completions` are now sanitized and forwarded to
-`https://api.openai.com`. If the client does not send its own `Authorization`
-header, the gateway injects `Bearer $OPENAI_API_KEY`.
+> Use Upstash's *TLS / Redis* connection string (it starts with `rediss://`), not the REST URL — the REST API needs a different client library than the ones this stack uses.
 
-## Configuration
+---
 
-Set these on the `gateway` service (environment variables):
+## 🤝 Contributing
 
-| Variable         | Default                  | Purpose                                                    |
-| ---------------- | ------------------------ | ---------------------------------------------------------- |
-| `REDIS_URL`      | `redis://localhost:6379` | Where tokens and counters live.                            |
-| `PRESIDIO_URL`   | `http://localhost:3000`  | Presidio analyzer base URL.                                |
-| `UPSTREAM_URL`   | `https://api.openai.com` | Any OpenAI-compatible base URL.                            |
-| `OPENAI_API_KEY` | _(empty)_                | Injected as a bearer token when the client sends none.     |
-| `MOCK_UPSTREAM`  | `false`                  | `true` echoes the sanitized payload instead of forwarding. |
+Contributions are what make the open-source community an amazing place to learn, inspire, and create.
 
-The `dashboard` service reads `REDIS_URL`.
+1. Fork the Project.
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the Branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
 
-## How tokenization works
-
-1. The gateway reads the JSON body of `POST /v1/chat/completions`.
-2. It sends the last message's text to Presidio's `/analyze`.
-3. Findings scoring `>= 0.6` are replaced with `[MASKED_<ENTITY>_<n>]`; the
-   original value is stored in Redis under that token with a 1-hour TTL.
-4. The rewritten payload is forwarded (or echoed in mock mode).
-5. Counters `stats:total_requests` and `stats:leaks_blocked` are incremented.
-
-If Presidio is unreachable the gateway **fails open**: it forwards the original
-text rather than dropping the request, and logs the failure.
-
-## Notes on the implementation
-
-- Presidio's analyzer listens on port **3000 inside its container**, so Compose
-  maps `5000:3000` and the gateway uses `http://presidio:3000`.
-- The maintained analyzer image is `ghcr.io/data-privacy-stack/presidio-analyzer`
-  (the old `mcr.microsoft.com` image is a stale legacy tag).
-- Each finding gets a unique token, so the same value appearing twice produces
-  two independent tokens.
-- The tokenizer walks Presidio's byte offsets left-to-right, so earlier
-  replacements never shift (or corrupt) later spans.
-
-## Local development (without Docker)
+### Running the checks
 
 ```bash
-# gateway
-cd gateway && go run .            # needs Redis + Presidio on localhost
-
-# dashboard
-cd ../dashboard && npm install && npm run dev
+cd gateway && go vet ./... && go test ./...
+cd ../dashboard && npm install && npm run build
 ```
 
-Or just use the compose stack — it wires all four services together.
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE).
