@@ -94,7 +94,7 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	logf("🛡️  listening on %s (upstream=%s, presidio=%s, mock=%v, failure_policy=%s)",
+	logf("listening on %s (upstream=%s, presidio=%s, mock=%v, failure_policy=%s)",
 		listenAddr, target, g.presidioURL, g.mockUpstream, g.failurePolicy)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)

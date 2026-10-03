@@ -18,7 +18,7 @@ export default async function AuditPage() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 border-b border-slate-800 pb-6">
           <h1 className="text-3xl font-extrabold tracking-tight text-emerald-400">
-            🔍 PII Leak Auditing Log
+            PII Leak Auditing Log
           </h1>
           <p className="mt-1 text-sm text-slate-400">
             Every intercepted request, most recent first. The table only ever
