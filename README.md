@@ -1,4 +1,4 @@
-# 🛡️ Guardian
+# Guardian
 
 Guardian is an open-source, **enterprise-grade API gateway and network proxy** that detects and tokenizes Personally Identifiable Information (PII) before it leaves your secure infrastructure and reaches external LLM providers (like OpenAI, Claude, or Gemini).
 
