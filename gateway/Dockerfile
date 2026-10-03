@@ -15,5 +15,8 @@ RUN adduser -D -u 10001 app
 USER app
 WORKDIR /app
 COPY --from=builder /out/gateway /app/gateway
+# Ship a default config; docker-compose mounts ./gateway/config over it so the
+# security team can edit rules live without rebuilding the image.
+COPY --from=builder /src/config /app/config
 EXPOSE 8080
 ENTRYPOINT ["/app/gateway"]
