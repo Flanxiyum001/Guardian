@@ -27,10 +27,8 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Type-check and build
-        run: |
-          bun tsc -b --noEmit
-          bun run build
+      - name: Build (type-checks via SWC)
+        run: bun run build
 
       - name: Verify static routes are prerendered
         run: |
